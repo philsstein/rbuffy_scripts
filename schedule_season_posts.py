@@ -3,16 +3,30 @@
 import praw
 import json
 import argparse
-from datetime import datetime, timedelta
-from time import time
+from datetime import datetime, timedelta, time
 
 epi_data_sr = 'buffytester'
 epi_data_dir = 'epi_data'
+post_days = [0, 3]       # starting at day 0 (MOnday), when next to post in days. [0, 3] == Monday, Thrusday
+post_time = 15           # in UTC from 0 15 == 3PM
+
+# Given a day and hour, return the datetime of that hour and day next week. day starts with Monday at 0.
+def next_week_at_hour(now, day, hour):
+    next_hour = time(hour=hour)
+    now += timedelta(days=7)
+    if now.time() < next_hour:
+        now = now.combine(now.date(), next_hour)
+    else:
+        now = now.combine(now.date(), next_hour) + timedelta(days=1)
+
+    return now + timedelta((day - now.weekday()) % 7)
 
 parser = argparse.ArgumentParser(description='Schedule episode of rhe week posts on /r/buffy and /r/ANGEL.')
 parser.add_argument('--season', type=int, dest='season', help='Which season to schedule.', required=True)
 parser.add_argument('--show', type=str, dest='show', help='Which show to schedule.',
                     choices=['buffy', 'angel'], required=True)
+parser.add_argument('-d', dest='debug', help='If true, do not write to wiki, just print to stdout.',
+                    action='store_true')
 args = parser.parse_args()
 
 # connect to reddit
@@ -24,27 +38,33 @@ ep_nums = json.loads(page.content_md)
 
 schedule = ('###### If you edit this page, you must [click this link, then click "send"]'
             '(http://www.reddit.com/message/compose/?to=AutoModerator&subject={}&message=schedule)'
-            'to have AutoModerator re-load the schedule from here'.format('buffytester'))
+            'to have AutoModerator re-load the schedule from here'.format(args.show))
 
-start_time = datetime.utcnow() + timedelta(minutes=10)
+start_time = next_week_at_hour(datetime.now(), post_days[0], post_time)
 for i, ep_num in enumerate(ep_nums):
     page = r.subreddit(epi_data_sr).wiki['{}/{}'.format(wiki_path, ep_num)]
     ep = json.loads(page.content_md)
-    first = start_time + timedelta(weeks=i)
-    ep_data = '\n---\n    first: "{}"\n    title: "{}"\n    distinguish: true\n    text: |\n'.format(
-        first.strftime("%Y-%m-%d %H:%M:%S"),
-        ep['title']
-    )
+
+    days = (int(i/len(post_days))*7) + post_days[i%len(post_days)]
+    first = start_time + timedelta(days=days)
+    ep_data = ('\n---\n'
+               '    first: "{}"\n'
+               '    title: "{}"\n'
+               '    stickied: true\n'
+               '    distinguish: true\n'
+               '    text: |\n'.format(first.strftime("%Y-%m-%d %H:%M:%S"), ep['title']))
     for line in ep['selftext'].split('\n'):
         ep_data += '        {}\n'.format(line)
 
     schedule += ep_data
 
-r.subreddit('buffytester').wiki['automoderator-schedule'].edit(
-    content=schedule, reason='scheduled weekly posts for season {}'.format(args.season))
-
-print('scheduled weekly posts for {} season {}.'.format(args.show, args.season))
-print('Now go to https://www.reddit.com/r/{}/wiki/automoderator-schedule and click the link to notify'
-      'automoderator about the update.'.format(args.show))
+if not args.debug:
+    r.subreddit(args.show).wiki['automoderator-schedule'].edit(
+        content=schedule, reason='scheduled weekly posts for season {}'.format(args.season))
+    print('scheduled weekly posts for {} season {}.'.format(args.show, args.season))
+    print('Now go to https://www.reddit.com/r/{}/wiki/automoderator-schedule and click the link to notify'
+        'automoderator about the update.'.format(args.show))
+else:
+    print(schedule)
 
 exit(0)
