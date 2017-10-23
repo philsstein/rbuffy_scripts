@@ -27,7 +27,11 @@ parser.add_argument('--show', type=str, dest='show', help='Which show to schedul
                     choices=['buffy', 'angel'], required=True)
 parser.add_argument('-d', dest='debug', help='If true, do not write to wiki, just print to stdout.',
                     action='store_true')
+parser.add_argument('-p', '--publishto', dest='publishto', help='If given publish to the subreddit listed'
+                    ' instead of the one given in the "show" argument.')
 args = parser.parse_args()
+
+publishto = args.publishto if args.publishto else args.show
 
 # connect to reddit
 r = praw.Reddit(site_name='buffy_scripts', user_agent='buffybot_scraper by /u/phil_s_stien')
@@ -38,7 +42,7 @@ ep_nums = json.loads(page.content_md)
 
 schedule = ('###### If you edit this page, you must [click this link, then click "send"]'
             '(http://www.reddit.com/message/compose/?to=AutoModerator&subject={}&message=schedule)'
-            'to have AutoModerator re-load the schedule from here'.format(args.show))
+            'to have AutoModerator re-load the schedule from here'.format(publishto))
 
 start_time = next_week_at_hour(datetime.now(), post_days[0], post_time)
 for i, ep_num in enumerate(ep_nums):
@@ -50,7 +54,7 @@ for i, ep_num in enumerate(ep_nums):
     ep_data = ('\n---\n'
                '    first: "{}"\n'
                '    title: "{}"\n'
-               '    stickied: true\n'
+               '    sticky: true\n'
                '    distinguish: true\n'
                '    text: |\n'.format(first.strftime("%Y-%m-%d %H:%M:%S"), ep['title']))
     for line in ep['selftext'].split('\n'):
@@ -59,7 +63,7 @@ for i, ep_num in enumerate(ep_nums):
     schedule += ep_data
 
 if not args.debug:
-    r.subreddit(args.show).wiki['automoderator-schedule'].edit(
+    r.subreddit(publishto).wiki['automoderator-schedule'].edit(
         content=schedule, reason='scheduled weekly posts for season {}'.format(args.season))
     print('scheduled weekly posts for {} season {}.'.format(args.show, args.season))
     print('Now go to https://www.reddit.com/r/{}/wiki/automoderator-schedule and click the link to notify'
