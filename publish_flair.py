@@ -20,7 +20,7 @@ if __name__ == "__main__":
         # {'flair_css_class': None, 'user': Redditor(name='Adido_net'), 'flair_text': 'Ominous in yummy sushi PJs'}
         flairs.append({'user': f['user'].name, 'flair_text': f['flair_text']}) 
     
-    sorted_flair = sorted(flairs, key=lambda f: f['user'])
+    sorted_flair = sorted(flairs, key=lambda f: f['flair_text'])
 
     wiki_markup = 'Name|Flair Text\n'
     wiki_markup += ':-|:-\n'
