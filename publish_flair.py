@@ -29,3 +29,5 @@ if __name__ == "__main__":
 
     page = r.subreddit(wiki_sub).wiki['flairs/{}'.format(sub)]
     page.edit(wiki_markup)
+
+    print('Published {} {} flairs to https://reddit.com/r/{}/wiki/flairs/{}'.format(len(sorted_flair), sub, wiki_sub, sub))
